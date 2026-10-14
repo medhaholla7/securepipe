@@ -1,0 +1,62 @@
+name: security-pipeline
+
+# Runs on every push and pull request. Any finding fails the build, so a PR
+# that reintroduces a seeded flaw cannot be merged.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Gitleaks (committed secrets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  sast:
+    name: Semgrep (insecure code)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install semgrep==1.180.0
+      - run: semgrep --metrics=off --error --config .semgrep/rules.yaml --config "p/python" app/
+
+  false_positive_check:
+    name: Semgrep rules stay quiet on fixed code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install semgrep==1.180.0
+      - run: semgrep --metrics=off --error --config .semgrep/rules.yaml fixed/
+
+  deps_and_container:
+    name: Trivy (dependencies and container)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan dependencies and config
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: "true"
+
+  iac:
+    name: Checkov (infrastructure as code)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: .
+          quiet: true
+          soft_fail: false

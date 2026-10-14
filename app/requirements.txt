@@ -1,0 +1,5 @@
+fastapi==0.95.2
+uvicorn==0.22.0
+# VULN 7 (CWE-1395): pinned to a version with known CVEs, so the
+# dependency scanner (Trivy) has something to flag.
+PyJWT==1.7.1

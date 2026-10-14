@@ -1,0 +1,53 @@
+rules:
+  - id: sqli-fstring-execute
+    languages: [python]
+    severity: ERROR
+    message: >-
+      SQL query built from an f-string and passed to execute(). User input
+      concatenated into SQL allows SQL injection (CWE-89). Use parameterised
+      queries: conn.execute("... WHERE x=?", (value,)).
+    metadata: {cwe: "CWE-89", owasp: "A03:2021"}
+    patterns:
+      - pattern-regex: 'f"\s*(SELECT|INSERT|UPDATE|DELETE)[^"]*\{'
+
+
+  - id: hardcoded-secret
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Hardcoded secret in source (CWE-798). Load signing keys and passwords
+      from a secret manager or environment, never hardcode them.
+    metadata: {cwe: "CWE-798"}
+    patterns:
+      - pattern-regex: '(?i)(secret|signing[_-]?key|password)\s*=\s*["''][^"'']{8,}["'']'
+
+  - id: cors-wildcard-with-credentials
+    languages: [python]
+    severity: ERROR
+    message: >-
+      CORS allows any origin together with credentials (CWE-942). A wildcard
+      origin must not be combined with allow_credentials=True.
+    metadata: {cwe: "CWE-942"}
+    patterns:
+      - pattern-regex: 'allow_origins\s*=\s*\[\s*"\*"\s*\]'
+
+
+  - id: debug-endpoint-leaks-env
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Endpoint returns os.environ, leaking configuration and secrets
+      (CWE-215). Remove debug endpoints before shipping.
+    metadata: {cwe: "CWE-215"}
+    patterns:
+      - pattern: dict(os.environ)
+
+  - id: plaintext-password-insert
+    languages: [python]
+    severity: WARNING
+    message: >-
+      Password appears to be stored without hashing (CWE-256). Store a salted
+      hash (e.g. bcrypt/argon2), never the raw password.
+    metadata: {cwe: "CWE-256"}
+    patterns:
+      - pattern-regex: "INSERT INTO users.*(pw|password)"
