@@ -44,6 +44,16 @@ jobs:
       - run: semgrep --metrics=off --config .semgrep/rules.yaml --json -o fp.json fixed/
       - run: python ci/annotate.py semgrep fp.json
 
+  access_control_tests:
+    name: Access-control tests (IDOR)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r app/requirements.txt pytest "httpx<0.28"
+      - run: pytest -q tests/
+
   deps_and_container:
     name: Trivy (dependencies and container)
     runs-on: ubuntu-latest

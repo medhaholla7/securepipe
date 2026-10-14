@@ -1,20 +1,22 @@
 # Seeded vulnerabilities
 
 This app is **deliberately insecure**. Each flaw below is planted so the CI/CD
-security pipeline can be shown catching it. The "Caught by" column is filled in
-as each scanner is added in Part 2.
+security pipeline can be shown catching it. "Caught by" is taken from real
+GitHub Actions runs on this repo.
 
 | # | Flaw | Where | CWE / OWASP | Caught by |
 |---|------|-------|-------------|-----------|
-| 1 | Hardcoded signing secret | `app/main.py` `JWT_SECRET` | CWE-798 | Gitleaks / Semgrep |
-| 2 | CORS allows any origin with credentials | `app/main.py` middleware | CWE-942 | Semgrep |
-| 3 | Passwords stored in plain text | `app/main.py` `init_db` | CWE-256 | Semgrep |
-| 4 | SQL injection in login | `app/main.py` `/login` | CWE-89, OWASP A03 | Semgrep |
-| 5 | IDOR / broken object level auth | `app/main.py` `/notes/{id}` | CWE-639, OWASP API1 | custom check / manual |
-| 6 | Debug endpoint leaks config and secret | `app/main.py` `/debug` | CWE-215 | Semgrep / manual |
-| 7 | Outdated dependency (PyJWT 1.7.1) | `app/requirements.txt` | CWE-1395 | Trivy |
-| 8 | Secret committed to repo (`.env`) | `.env` | CWE-798 | Gitleaks |
-| 9 | Container runs as root | `app/Dockerfile` | CWE-250 | Trivy / Checkov |
+| 1 | Hardcoded signing secret | `app/main.py` `JWT_SECRET` | CWE-798 | Semgrep (custom + p/python), Gitleaks (custom rule) |
+| 2 | CORS allows any origin with credentials | `app/main.py` middleware | CWE-942 | Semgrep (custom + p/python) |
+| 3 | Passwords stored in plain text | `app/main.py` `init_db` | CWE-256 | Semgrep (custom) |
+| 4 | SQL injection in login | `app/main.py` `/login` | CWE-89, OWASP A03 | Semgrep (custom) |
+| 5 | IDOR / broken object level auth | `app/main.py` `/notes/{id}` | CWE-639, OWASP API1 | Access-control test (`tests/`) |
+| 6 | Debug endpoint leaks config and secret | `app/main.py` `/debug` | CWE-215 | Semgrep (custom) |
+| 7 | Outdated dependency (PyJWT 1.7.1) | `app/requirements.txt` | CWE-1395 | Trivy (5 CVEs: 1 critical, 4 high) |
+| 8 | Secrets committed to repo (`.env`) | `.env` | CWE-798 | Gitleaks (custom rule) |
+| 9 | Container runs as root | `app/Dockerfile` | CWE-250 | Trivy (DS-0002), Checkov (CKV_DOCKER_3) |
+
+The fixed version of the code is in `fixed/main.py`.
 
 ## Proof the flaws are real (local)
 
