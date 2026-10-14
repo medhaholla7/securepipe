@@ -33,11 +33,13 @@ loop a security engineer runs: **find the weakness, prove it, automate the contr
 | Access control | pytest | IDOR: user B reading user A's note |
 | Dependencies and container | Trivy | Known CVEs, root container |
 | Infrastructure as code | Checkov | Dockerfile misconfigurations |
+| Privacy / GDPR | pii_scan.py | Personal data or credentials written to log files |
 
 ## Results (from real GitHub Actions runs)
 
-- **All 9 planted flaws caught.** 8 by scanners, plus the IDOR by the
-  access-control test.
+- **All 11 planted flaws caught.** 8 by scanners, the IDOR and the
+  personal-data exposure by tests, and credentials/PII in logs by both a
+  Semgrep rule and a runtime log scan.
 - **0 false positives** from the custom Semgrep rules on the fixed code.
 - Trivy found **5 known CVEs** in PyJWT 1.7.1 (1 critical, 4 high), including
   authentication bypass via forged tokens.
@@ -67,7 +69,16 @@ pip install -r app/requirements.txt && uvicorn main:app --app-dir app
 pytest -q tests/   # fails: proves the IDOR is there
 ```
 
-## Next
+## Privacy (GDPR)
 
-A privacy check that flags personal data (emails, phone numbers) written to
-logs, mapped to the relevant GDPR articles.
+Two flaws are about personal data, not just code safety:
+
+- The app logged full passwords, emails and phone numbers. A custom Semgrep
+  rule catches the logging call in code, and `ci/pii_scan.py` scans the actual
+  log file the app produces at runtime, so PII that reaches a log through a
+  path no rule anticipated is still caught. Each finding names the CWE and the
+  GDPR article it puts at risk (Art. 5(1)(c) data minimisation, Art. 32
+  security), with the matched value masked so the scan never re-leaks it.
+- The `/users` endpoint returned every user's email and phone to any logged-in
+  caller. A test catches it, and the fixed version returns only the caller's
+  own record.

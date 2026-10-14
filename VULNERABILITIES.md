@@ -15,6 +15,8 @@ GitHub Actions runs on this repo.
 | 7 | Outdated dependency (PyJWT 1.7.1) | `app/requirements.txt` | CWE-1395 | Trivy (5 CVEs: 1 critical, 4 high) |
 | 8 | Secrets committed to repo (`.env`) | `.env` | CWE-798 | Gitleaks (custom rule) |
 | 9 | Container runs as root | `app/Dockerfile` | CWE-250 | Trivy (DS-0002), Checkov (CKV_DOCKER_3) |
+| 10 | Passwords and personal data written to logs | `app/main.py` `/login`, `/signup` | CWE-532, GDPR Art. 5(1)(c), 32 | Semgrep (custom), PII log scan (`ci/pii_scan.py`) |
+| 11 | Any user can read everyone's email and phone | `app/main.py` `/users` | CWE-359, GDPR Art. 5(1)(c) | Privacy test (`tests/`) |
 
 The fixed version of the code is in `fixed/main.py`.
 

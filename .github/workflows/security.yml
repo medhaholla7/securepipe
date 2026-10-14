@@ -54,6 +54,18 @@ jobs:
       - run: pip install -r app/requirements.txt pytest "httpx<0.28"
       - run: pytest -q tests/
 
+  privacy_logs:
+    name: PII / GDPR log scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install -r app/requirements.txt pytest "httpx<0.28"
+      # Exercise the app so it writes a real log, then scan what landed in it.
+      - run: LOG_FILE=app.log pytest -q tests/test_privacy.py || true
+      - run: python ci/pii_scan.py app.log
+
   deps_and_container:
     name: Trivy (dependencies and container)
     runs-on: ubuntu-latest

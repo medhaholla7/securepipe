@@ -5,6 +5,7 @@ expects 0 findings, which proves the rules do not raise false positives.
 """
 import hashlib
 import hmac
+import logging
 import os
 import sqlite3
 
@@ -14,6 +15,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI(title="Notes API (fixed)")
+
+log = logging.getLogger("notes")
+log.setLevel(logging.INFO)
+_h = logging.FileHandler(os.environ.get("LOG_FILE", "app.log"))
+_h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+log.addHandler(_h)
+
+
+def mask_email(e: str) -> str:
+    # FIX 10: keep logs useful for debugging without storing the address.
+    name, _, domain = e.partition("@")
+    return f"{name[:1]}***@{domain}"
 
 # FIX 1: secret comes from the environment, never from source.
 JWT_SECRET = os.environ["JWT_SECRET"]
@@ -46,6 +59,13 @@ class Login(BaseModel):
     password: str
 
 
+class Signup(BaseModel):
+    username: str
+    password: str
+    email: str
+    phone: str
+
+
 def current_user(authorization: str) -> int:
     try:
         token = authorization.split(" ", 1)[1]
@@ -57,6 +77,7 @@ def current_user(authorization: str) -> int:
 
 @app.post("/login")
 def login(body: Login):
+    log.info("login attempt user_len=%d", len(body.username))  # FIX 10: no credentials
     conn = db()
     # FIX 4: parameterised query, user input never becomes SQL.
     row = conn.execute(
@@ -82,5 +103,29 @@ def get_note(note_id: int, authorization: str = Header(...)):
     if not row:
         raise HTTPException(404, "not found")
     return {"id": row["id"], "body": row["body"]}
+
+
+
+@app.post("/signup")
+def signup(body: Signup):
+    salt = os.urandom(16)
+    conn = db()
+    conn.execute(
+        "INSERT INTO users (username, pw_hash, salt, email, phone) VALUES (?,?,?,?,?)",
+        (body.username, hash_pw(body.password, salt), salt.hex(), body.email, body.phone),
+    )
+    conn.commit(); conn.close()
+    log.info("new signup email=%s", mask_email(body.email))  # FIX 10: masked, no phone
+    return {"ok": True}
+
+
+@app.get("/users/me")
+def me(authorization: str = Header(...)):
+    # FIX 11: users only see their own record (data minimisation).
+    uid = current_user(authorization)
+    conn = db()
+    row = conn.execute("SELECT id, username, email FROM users WHERE id=?", (uid,)).fetchone()
+    conn.close()
+    return dict(row)
 
 # FIX 6: no debug endpoint.

@@ -52,4 +52,17 @@ rules:
       hash (e.g. bcrypt/argon2), never the raw password.
     metadata: {cwe: "CWE-256"}
     patterns:
-      - pattern-regex: "INSERT INTO users.*(pw|password)"
+      # Skip inserts that store a hash and salt (the safe pattern).
+      - pattern-regex: "INSERT INTO users(?!.*(hash|salt)).*(pw|password)"
+
+  - id: pii-in-log
+    languages: [python]
+    severity: ERROR
+    message: >-
+      Personal data or credentials interpolated into a log line (CWE-532).
+      Logs are copied widely and kept for a long time, so this breaks GDPR
+      Art. 5(1)(c) data minimisation and Art. 32 security. Log an ID or a
+      masked value instead.
+    metadata: {cwe: "CWE-532", gdpr: "Art. 5(1)(c), Art. 32"}
+    patterns:
+      - pattern-regex: 'log(ger)?\.(debug|info|warning|error|exception)\(\s*f["''][^"'']*\{[^}]*(password|passwd|email|phone|token|dob|address)'
