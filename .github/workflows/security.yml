@@ -19,6 +19,7 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          GITLEAKS_CONFIG: .gitleaks.toml
 
   sast:
     name: Semgrep (insecure code)
@@ -41,14 +42,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Scan dependencies and config
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: "true"
+      # Pinned Trivy release binary instead of trivy-action: the old action
+      # tag was removed upstream, which broke the job at setup.
+      - name: Install Trivy 0.69.3
+        run: |
+          curl -sSfL -o trivy.tgz https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz
+          tar xzf trivy.tgz trivy && sudo mv trivy /usr/local/bin/
+      - name: Scan dependencies and Dockerfile
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
 
   iac:
     name: Checkov (infrastructure as code)

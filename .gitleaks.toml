@@ -1,0 +1,23 @@
+# Custom Gitleaks rules. The default ruleset only knows real provider key
+# formats (AWS, GitHub, Stripe...), so it missed this repo's planted secrets:
+# a hand-written JWT signing key and passwords in a committed .env file.
+# These rules close that gap while keeping all the defaults.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "env-file-secret"
+description = "Secret-like variable committed in a .env file"
+path = '''(^|/)\.env(\.[a-z]+)?$'''
+regex = '''(?im)^\s*[A-Z0-9_]*(SECRET|PASSWORD|PASSWD|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*=\s*([^\s#]{8,})'''
+secretGroup = 2
+tags = ["CWE-798", "env"]
+
+[[rules]]
+id = "hardcoded-signing-key"
+description = "Signing key or secret hardcoded as a string literal in source"
+path = '''\.(py|js|ts|go|java)$'''
+regex = '''(?i)\b[A-Z0-9_]*(SECRET|SIGNING_KEY|JWT_KEY)[A-Z0-9_]*\s*=\s*["']([^"']{12,})["']'''
+secretGroup = 2
+tags = ["CWE-798", "source"]
