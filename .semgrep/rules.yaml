@@ -19,7 +19,9 @@ rules:
       from a secret manager or environment, never hardcode them.
     metadata: {cwe: "CWE-798"}
     patterns:
-      - pattern-regex: '(?i)(secret|signing[_-]?key|password)\s*=\s*["''][^"'']{8,}["'']'
+      # Value must be a plain literal: a "{" means an f-string placeholder
+      # (e.g. password='{body.password}' in SQL), which is not a secret.
+      - pattern-regex: '(?i)\b[a-z0-9_]*(secret|signing_?key|password)[a-z0-9_]*\s*=\s*["''][^"''{]{8,}["'']'
 
   - id: cors-wildcard-with-credentials
     languages: [python]

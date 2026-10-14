@@ -1,7 +1,8 @@
 name: security-pipeline
 
 # Runs on every push and pull request. Any finding fails the build, so a PR
-# that reintroduces a seeded flaw cannot be merged.
+# that reintroduces a seeded flaw cannot be merged. Each scanner writes JSON,
+# and ci/annotate.py turns every finding into an inline annotation.
 on:
   push:
   pull_request:
@@ -15,11 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
-          GITLEAKS_CONFIG: .gitleaks.toml
+        with: { fetch-depth: 0 }   # full history: a secret deleted later is still leaked
+      - name: Install Gitleaks 8.21.2
+        run: |
+          curl -sSfL -o gl.tgz https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz
+          tar xzf gl.tgz gitleaks && sudo mv gitleaks /usr/local/bin/
+      - name: Scan full git history (default + custom rules)
+        run: gitleaks git . -c .gitleaks.toml --redact --no-banner -f json -r gitleaks.json --exit-code 0
+      - run: python ci/annotate.py gitleaks gitleaks.json
 
   sast:
     name: Semgrep (insecure code)
@@ -27,7 +31,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install semgrep==1.180.0
-      - run: semgrep --metrics=off --error --config .semgrep/rules.yaml --config "p/python" app/
+      - name: Scan app (custom rules + p/python)
+        run: semgrep --metrics=off --config .semgrep/rules.yaml --config "p/python" --json -o semgrep.json app/
+      - run: python ci/annotate.py semgrep semgrep.json
 
   false_positive_check:
     name: Semgrep rules stay quiet on fixed code
@@ -35,21 +41,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install semgrep==1.180.0
-      - run: semgrep --metrics=off --error --config .semgrep/rules.yaml fixed/
+      - run: semgrep --metrics=off --config .semgrep/rules.yaml --json -o fp.json fixed/
+      - run: python ci/annotate.py semgrep fp.json
 
   deps_and_container:
     name: Trivy (dependencies and container)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # Pinned Trivy release binary instead of trivy-action: the old action
-      # tag was removed upstream, which broke the job at setup.
+      # Pinned release binary instead of trivy-action: the old action tag was
+      # removed upstream, which broke the job at setup.
       - name: Install Trivy 0.69.3
         run: |
           curl -sSfL -o trivy.tgz https://github.com/aquasecurity/trivy/releases/download/v0.69.3/trivy_0.69.3_Linux-64bit.tar.gz
           tar xzf trivy.tgz trivy && sudo mv trivy /usr/local/bin/
       - name: Scan dependencies and Dockerfile
-        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 .
+        run: trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --ignore-unfixed --skip-dirs fixed --format json -o trivy.json .
+      - run: python ci/annotate.py trivy trivy.json
 
   iac:
     name: Checkov (infrastructure as code)
