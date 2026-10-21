@@ -29,7 +29,13 @@ def mask_email(e: str) -> str:
     return f"{name[:1]}***@{domain}"
 
 # FIX 1: secret comes from the environment, never from source.
-JWT_SECRET = os.environ["JWT_SECRET"]
+# On Kubernetes it is mounted as a file (JWT_SECRET_FILE), so it never sits in
+# the pod's environment where `kubectl describe` or a crash dump could show it.
+if os.environ.get("JWT_SECRET_FILE"):
+    with open(os.environ["JWT_SECRET_FILE"]) as fh:
+        JWT_SECRET = fh.read().strip()
+else:
+    JWT_SECRET = os.environ["JWT_SECRET"]
 
 # FIX 2: only a known front-end origin may send credentials.
 app.add_middleware(
@@ -73,6 +79,12 @@ def current_user(authorization: str) -> int:
         return int(data["uid"])
     except Exception:
         raise HTTPException(401, "bad token")
+
+
+@app.get("/health")
+def health():
+    # Used by the Kubernetes liveness and readiness probes. Returns nothing sensitive.
+    return {"status": "ok"}
 
 
 @app.post("/login")
