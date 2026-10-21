@@ -1,0 +1,48 @@
+# SecurePipe notes API on Kubernetes: DELIBERATELY INSECURE.
+# Each planted misconfiguration is tagged K8S-N and listed in VULNERABILITIES.md.
+# The secure version is in fixed/infra/k8s/.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notes-api
+  namespace: default # K8S-1: runs in the default namespace
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notes-api
+  template:
+    metadata:
+      labels:
+        app: notes-api
+    spec:
+      hostNetwork: true # K8S-2: pod shares the node's network
+      containers:
+        - name: notes-api
+          image: securepipe/notes:latest # K8S-3: mutable "latest" tag, no digest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: JWT_SECRET
+              value: "dev-secret-change-me-8f2a91" # K8S-4: secret in plain text, not a Secret
+          securityContext:
+            privileged: true # K8S-5: full access to the host
+            runAsUser: 0 # K8S-6: runs as root
+            allowPrivilegeEscalation: true # K8S-7
+            capabilities:
+              add: ["SYS_ADMIN", "NET_ADMIN"] # K8S-8: dangerous Linux capabilities
+          # K8S-9: no CPU or memory limits, so one pod can starve the node
+          # K8S-10: no liveness or readiness probes
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notes-api
+  namespace: default
+spec:
+  type: LoadBalancer
+  selector:
+    app: notes-api
+  ports:
+    - port: 80
+      targetPort: 8000
